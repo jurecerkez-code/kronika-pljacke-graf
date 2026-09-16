@@ -369,9 +369,44 @@ function primijeni() {
   const vidljiviId = new Set(cvorovi.map(n => n.id));
   bridovi = bridovi.filter(b => vidljiviId.has(b.s) && vidljiviId.has(b.t));
 
-  stanje.istaknuti = new Set(
-    q ? cvorovi.filter(n => (n.ime||'').toLowerCase().includes(q)).map(n => n.id) : []
-  );
+  // ---------- trazilica: normalizacija + siroko podudaranje ----------
+    // dijakritike se izravnavaju (Curkovic ~ Curkovic ~ curkovic), a pretrazuje
+    // se i tijelo predmeta (sazetak, lokacija, sektor), ne samo naslov cvora.
+    const norm = s => String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    const tekstZaTrazi = n => n.tip==='predmet'
+      ? norm([n.ime, n.sazetak, n.lokacija, n.sektor, (n.kategorija||[]).join(' ')].join(' '))
+      : norm(n.ime);
+    const predmetiEntiteta = new Map();   // entitet-id -> Set(predmet-id)
+    PODACI.bridovi.forEach(b => {
+      if (!predmetiEntiteta.has(b.t)) predmetiEntiteta.set(b.t, new Set());
+      predmetiEntiteta.get(b.t).add(b.s);
+    });
+
+    stanje.istaknuti = new Set();
+    if (q && q.length >= 2) {
+      const nq = norm(q);
+      const pogodjeni = cvorovi.filter(n => tekstZaTrazi(n).includes(nq));
+      // pogodjeni cvorovi + predmeti koji ih imenuju (da se 'slucaj' ne prigusi)
+            pogodjeni.forEach(n => {
+              stanje.istaknuti.add(n.id);
+              if (n.tip !== 'predmet') {
+                (predmetiEntiteta.get(n.id)||[]).forEach(pid => {
+                  const p = poId.get(pid);
+                  if (p) stanje.istaknuti.add(p.id);
+                });
+              } else {
+                PODACI.bridovi.filter(b => b.s === n.id).forEach(b => {
+                  const e = poId.get(b.t);
+                  if (e) stanje.istaknuti.add(e.id);
+                });
+              }
+            });
+      // jedan pogodjeni predmet -> odmah ga otvori u desnoj ploci
+            const pogodjeniPredmeti = [...stanje.istaknuti].filter(id => poId.get(id)?.tip==='predmet');
+            if (pogodjeniPredmeti.length === 1 && stanje.odabran !== pogodjeniPredmeti[0]) {
+              odaberi(pogodjeniPredmeti[0]);
+            }
+    }
 
   document.getElementById('s-cvorova').textContent = cvorovi.length;
   document.getElementById('s-bridova').textContent = bridovi.length;
