@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Mreža predmeta</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
@@ -268,7 +268,9 @@
           position:fixed; top:0; left:0; bottom:0; width:82%; max-width:330px; z-index:30;
           transform:translateX(-100%); transition:transform .22s ease; box-shadow:0 0 24px rgba(0,0,0,.25);
           border-right:1px solid var(--rule);
-        }
+            input[type="search"], select, input:not([type="range"]) { font-size:16px; }
+    .app.detalj aside.desno { font-size:14px; }
+  }
         aside.lijevo.otvoren { transform:translateX(0); }
         .app.detalj aside.desno { position:fixed; inset:auto 0 0; max-height:72vh; z-index:10;
           border-top:1px solid var(--rule); padding-bottom:calc(24px + env(safe-area-inset-bottom)); }
@@ -798,6 +800,7 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;
 function odaberi(id) {
   stanje.odabran = id;
   app.classList.toggle('detalj', !!id);
+  if (id && document.activeElement && document.activeElement.blur) document.activeElement.blur();
   if (id) detaljEl.innerHTML = kartica(poId.get(id));
   crtaj();
   requestAnimationFrame(razmjeri);
