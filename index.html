@@ -307,6 +307,10 @@
     main:fullscreen { width:100vw; height:100vh; background:var(--plane); }
     main:fullscreen canvas { width:100vw; height:100vh; display:block; }
     .app.fs-active main { height:100dvh; }
+      .pouz { display:inline-block; margin-left:6px; padding:1px 7px; border-radius:9px; font-size:11px;
+      vertical-align:middle; border:1px solid var(--hair); background:var(--surface); color:var(--ink-2); }
+    :root { --nepoznato:#9aa0a6; }
+    @media (prefers-color-scheme: dark) { :root { --nepoznato:#8b8f94; } }
   </style>
 
 <div class="app" id="app">
@@ -352,6 +356,7 @@
       <h2>Boja predmeta</h2>
       <select id="boja">
         <option value="ishod">prema ishodu postupka</option>
+        <option value="steta">prema šteti (log)</option>
         <option value="neutral">neutralno (samo struktura)</option>
       </select>
     </div>
@@ -472,15 +477,26 @@ function crtajLegendu() {
   const vrste = Object.entries(VRSTA).filter(([k]) => k !== 'predmet').map(([k,v]) =>
     `<div><span class="kljuc" style="background:var(--${k});${v.oblik==='romb'?'transform:rotate(45deg)':''}"></span>${v.ime}</div>`
   ).join('');
-  const ishodi = stanje.boja === 'ishod'
-    ? RAZREDI.map(([r, naslov]) =>
+  let ishodi;
+  if (stanje.boja === 'ishod') {
+    ishodi = RAZREDI.map(([r, naslov]) =>
         `<div><span class="kljuc" style="background:var(--${r});border-radius:50%"></span>${naslov}</div>`).join('')
-    : `<div><span class="kljuc" style="background:var(--predmet);border-radius:50%"></span>Predmeti</div>`;
+      + `<div><span class="kljuc" style="background:var(--nepoznato);border-radius:50%"></span>ishod nepoznat</div>`;
+  } else if (stanje.boja === 'steta') {
+    const [min, max] = stetaSkala();
+    ishodi = `<div><span class="kljuc" style="background:hsl(55,72%,62%);border-radius:50%"></span>manja šteta</div>`
+      + `<div><span class="kljuc" style="background:hsl(0,72%,40%);border-radius:50%"></span>veća šteta (log)</div>`
+      + `<div><span class="kljuc" style="background:var(--predmet);border-radius:50%"></span>šteta nije utvrđena</div>`;
+  } else {
+    ishodi = `<div><span class="kljuc" style="background:var(--predmet);border-radius:50%"></span>Predmeti</div>`;
+  }
   document.getElementById('legenda').innerHTML =
     `<div style="color:var(--ink-3);font-size:10px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px">Predmeti (●)</div>`
     + ishodi
     + `<div style="color:var(--ink-3);font-size:10px;letter-spacing:.06em;text-transform:uppercase;margin:6px 0 3px;padding-top:5px;border-top:1px solid var(--hair)">Entiteti</div>`
-    + vrste;
+    + `<div style="color:var(--ink-3);font-size:10px;letter-spacing:.06em;text-transform:uppercase;margin:6px 0 3px;padding-top:5px;border-top:1px solid var(--hair)">Status aktera (rub)</div>`
+    + `<div><span class="kljuc" style="box-shadow:0 0 0 2.5px #5cb85c;background:var(--surface)"></span>pravomoćno osuđen / osuđen u I. st.</div>`
+    + `<div><span class="kljuc" style="box-shadow:0 0 0 2.5px #e6b93f;background:var(--surface)"></span>optužen / žalbena faza</div>`;
 }
 
 const godina = document.getElementById('godina');
@@ -634,11 +650,37 @@ const r = n => n.tip === 'predmet'
   ? 4.2
   : Math.min(15, 3.4 + Math.sqrt(n.stupanj || 1) * 1.7);
 
+function stetaBroj(n) {
+  const s = String(n.steta || '');
+  const m = s.replace(/\./g, '').match(/([\d.,]+)\s*(milijun|milijuna|mil|mln)?/i);
+  if (!m) return null;
+  let v = parseFloat(m[1].replace(/,/g, '.'));
+  if (!isFinite(v) || v <= 0) return null;
+  if (m[2]) v *= 1e6;
+  return v;
+}
+let STETA_LOG = null;
+function stetaSkala() {
+  if (STETA_LOG) return STETA_LOG;
+  const vals = cvorovi.filter(n => n.tip === 'predmet').map(stetaBroj).filter(Boolean);
+  const min = Math.log10(Math.min(...vals)), max = Math.log10(Math.max(...vals));
+  STETA_LOG = [min, max]; return STETA_LOG;
+}
+function bojaSteta(n) {
+  const v = stetaBroj(n);
+  if (!v) return boja('predmet');
+  const [min, max] = stetaSkala();
+  const f = Math.max(0, Math.min(1, (Math.log10(v) - min) / (max - min || 1)));
+  const hue = 55 - 55 * f, light = 62 - 22 * f;
+  return `hsl(${hue}, 72%, ${light}%)`;
+}
 function bojaCvora(n) {
   if (n.tip !== 'predmet') return boja(n.tip);
+  if (stanje.boja === 'steta') return bojaSteta(n);
   if (stanje.boja === 'neutral') return boja('predmet');
   const i = ISHOD[n.ishod];
-  return i ? boja(i.razred) : boja('predmet');
+  if (!i) return boja('nepoznato');
+  return boja(i.razred);
 }
 
 /* ---------- crtanje ---------- */
@@ -675,6 +717,17 @@ function oblik(n, x, y, rad) {
   const h = rad * 1.15;
   ctx.moveTo(x, y-h); ctx.lineTo(x+h, y+h*.72); ctx.lineTo(x-h, y+h*.72); ctx.closePath();
 }
+
+  /* U1: pravni status aktera — boja ruba */
+  function statusKlasa(n) {
+    if (n.tip !== 'akter') return null;
+    const sts = (n.statusi || []).join(' ').toLowerCase();
+    if (!sts) return null;
+    if (sts.includes('pravomoćno osuđen') || sts.includes('osuđen u prvom stupnju')) return 'osuden';
+    if (sts.includes('optužen') || sts.includes('žalbena faza')) return 'optuzen';
+    return null;
+  }
+  const STATUS_BOJA = { osuden: '#5cb85c', optuzen: '#e6b93f' };
 
 function crtaj() {
   if (!W) { const d = velicinaPlatna(); W = d.width; H = d.height; }
@@ -719,6 +772,9 @@ function crtaj() {
     ctx.lineWidth = 2 / transform.k;
     ctx.strokeStyle = boja('surface');
     ctx.stroke();
+    const sk = statusKlasa(n);
+    if (sk) { ctx.beginPath(); oblik(n, n.x, n.y, rad + 4.5/transform.k);
+      ctx.lineWidth = 2.5 / transform.k; ctx.strokeStyle = STATUS_BOJA[sk]; ctx.stroke(); }
     if (n.id === fokus || trazi.has(n.id)) {
       ctx.beginPath(); oblik(n, n.x, n.y, rad + 3.5/transform.k);
       ctx.lineWidth = 2 / transform.k; ctx.strokeStyle = boja('ink'); ctx.stroke();
@@ -820,8 +876,7 @@ function kartica(n) {
       const d = poId.get(b.t);
       if (d && grupe[d.tip]) grupe[d.tip].push({d, b});
     });
-    return `${zatvori}
-      <h3>${esc(n.ime)}</h3>
+    return `${zatvori}       <h3>${esc(n.ime)}${n.pouzdanost ? ` <span class='pouz' title='Razina pouzdanosti dokaza: A=sudska presuda ili državna revizija, D=jedan izvor'>${n.pouzdanost}</span>` : ''}</h3>
       <div class="pod">${n.godina || '?'}${n.kraj ? '–' + n.kraj : ''}. · ${esc(n.id)}</div>
       ${i ? `<span class="znak" style="color:var(--${i.razred})">${i.znak} ${esc(n.ishod)}</span>` : ''}
       <p class="sazetak" style="margin-top:11px">${esc(n.sazetak)}</p>
