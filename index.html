@@ -283,6 +283,18 @@
         #btn-filtri { display:none; }
         .trazi-m { display:none; }
       }
+    /* ---------- fullscreen (Feature E) ---------- */
+    .app.fs-active { position:fixed; inset:0; z-index:9999; height:100dvh; }
+    .app.fs-active header { display:none; }
+    .app.fs-active .punch, .app.fs-active .udarac, .app.fs-active .era,
+    .app.fs-active .slajder, .app.fs-active aside.lijevo { display:none; }
+    .app.fs-active aside.desno { max-height:46vh; }
+    #btn-fullscreen { position:absolute; top:10px; right:12px; z-index:20;
+      padding:8px 12px; font-size:13px; border:1px solid var(--hair);
+      border-radius:8px; background:var(--surface); color:var(--ink); cursor:pointer; }
+    #btn-fullscreen:active { transform:scale(0.97); }
+    main:fullscreen { width:100vw; height:100vh; }
+    main:fullscreen canvas { width:100vw; height:100vh; display:block; }
   </style>
 
 <div class="app" id="app">
@@ -296,6 +308,7 @@
       <button id="btn-filtri">☰ Filtri</button>
       <button id="btn-tablica">Tablica</button>
       <button id="btn-slozi">Presloži</button>
+      <button id="btn-fullscreen" title="Cijeli ekran">⛶ Cijeli ekran</button>
     </header>
 
     <div class="punch" id="punch"></div>
@@ -995,5 +1008,29 @@ primijeni();
     };
     document.getElementById('god-do').textContent = PODACI.meta.raspon[1] + '.';
     osvjeziGodinuPct();
-  })();
-</script>
+    })();
+
+    /* ---------- fullscreen (Feature E) ---------- */
+    (function () {
+      const btn = document.getElementById('btn-fullscreen');
+      const app = document.getElementById('app');
+      const main = document.querySelector('main');
+      const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+                  (navigator.userAgent.includes('Macintosh') && 'ontouchend' in document);
+      function enter() {
+        if (!IOS && main.requestFullscreen) { main.requestFullscreen().catch(() => cssFS(true)); }
+        else cssFS(true);
+      }
+      function cssFS(on) { app.classList.toggle('fs-active', on); btn.textContent = on ? '✕ Izađi' : '⛶ Cijeli ekran'; }
+      function exit() {
+        if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); }
+        cssFS(false);
+      }
+      btn.onclick = () => {
+        if (document.fullscreenElement || app.classList.contains('fs-active')) exit(); else enter();
+      };
+      document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) cssFS(false);
+      });
+    })();
+    </script>
