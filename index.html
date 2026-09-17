@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mreža predmeta</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
@@ -260,24 +261,28 @@
   #rezultati .prazno-rez { padding:8px 9px; color:var(--ink-3); font-size:11.5px; }
 
   @media (max-width:900px) {
-      .app, .app.detalj { grid-template-columns:1fr; grid-template-rows:auto auto auto auto auto auto 1fr; }
-      aside.lijevo {
-        position:fixed; top:0; left:0; bottom:0; width:82%; max-width:330px; z-index:30;
-        transform:translateX(-100%); transition:transform .22s ease; box-shadow:0 0 24px rgba(0,0,0,.25);
-        border-right:1px solid var(--rule);
+        .app, .app.detalj { grid-template-columns:1fr; grid-template-rows:auto auto auto auto auto auto auto 1fr; }
+        aside.lijevo {
+          position:fixed; top:0; left:0; bottom:0; width:82%; max-width:330px; z-index:30;
+          transform:translateX(-100%); transition:transform .22s ease; box-shadow:0 0 24px rgba(0,0,0,.25);
+          border-right:1px solid var(--rule);
+        }
+        aside.lijevo.otvoren { transform:translateX(0); }
+        .app.detalj aside.desno { position:fixed; inset:auto 0 0; max-height:55vh; z-index:10;
+          border-top:1px solid var(--rule); }
+        /* trake razdoblja na mobitelu: horizontalno klizne */
+        .era { overflow-x:auto; }
+        .era .e { flex:0 0 130px; }
+        #btn-filtri { display:inline-block; }
+        .punch { gap:0; }
+        /* pretraga iz ladice prelazi na vrh stranice (mobilni) */
+        .trazi-m { display:block; padding:8px 16px 10px; border-bottom:1px solid var(--hair); background:var(--surface); }
+        aside.lijevo .grupa:first-child { display:none; }
       }
-      aside.lijevo.otvoren { transform:translateX(0); }
-      .app.detalj aside.desno { position:fixed; inset:auto 0 0; max-height:55vh; z-index:10;
-        border-top:1px solid var(--rule); }
-      /* trake razdoblja na mobitelu: horizontalno klizne */
-      .era { overflow-x:auto; }
-      .era .e { flex:0 0 130px; }
-      #btn-filtri { display:inline-block; }
-      .punch { gap:0; }
-    }
-    @media (min-width:901px) {
-      #btn-filtri { display:none; }
-    }
+      @media (min-width:901px) {
+        #btn-filtri { display:none; }
+        .trazi-m { display:none; }
+      }
   </style>
 
 <div class="app" id="app">
@@ -297,12 +302,17 @@
       <div class="udarac" id="udarac"></div>
       <div class="era" id="era"></div>
       <div class="slajder">
-        <span id="god-od" class="god"></span>
-        <input type="range" id="godina" min="1800" max="2026" value="1800" title="Prikaži predmete od ove godine nadalje">
-        <span id="god-do" class="god"></span>
-      </div>
+              <span id="god-od" class="god"></span>
+              <input type="range" id="godina" min="1800" max="2026" value="1800" title="Prikaži predmete od ove godine nadalje">
+              <span id="god-do" class="god"></span>
+            </div>
 
-    <aside class="lijevo">
+          <div class="trazi-m">
+            <input type="search" id="trazi-m" placeholder="ime, institucija, predmet…" autocomplete="off">
+            <div id="rezultati-m" hidden></div>
+          </div>
+
+          <aside class="lijevo">
       <div class="grupa">
         <h2>Traži</h2>
         <input type="search" id="trazi" placeholder="ime, institucija, predmet…" autocomplete="off">
@@ -511,6 +521,11 @@ function primijeni() {
 
     stanje.istaknuti = new Set();
         const rezBox = document.getElementById('rezultati');
+        const rezBoxM = document.getElementById('rezultati-m');
+        const orisaj = (html, vidl) => {
+          if (rezBox) { rezBox.innerHTML = html; rezBox.hidden = !vidl; }
+          if (rezBoxM) { rezBoxM.innerHTML = html; rezBoxM.hidden = !vidl; }
+        };
         if (q && q.length >= 2) {
           const nq = norm(q);
           const pogodjeni = cvorovi.filter(n => tekstZaTrazi(n).includes(nq));
@@ -541,24 +556,27 @@ function primijeni() {
                   const red = p => {
                     const i = ISHOD[p.ishod];
                     const c = i ? `style="color:var(--${i.razred})"` : '';
-                    return `<div class="r" onclick="odaberi('${esc(p.id)}');document.getElementById('trazi').blur()">
-                      <span class="g">${p.godina||'?'}.</span>
-                      <span class="n" ${c}>${esc(p.ime)}</span></div>`;
+                    return `<div class="r" onclick="odaberi('${esc(p.id)}');document.activeElement&&document.activeElement.blur&&document.activeElement.blur()">
+                                          <span class="g">${p.godina||'?'}.</span>
+                                          <span class="n" ${c}>${esc(p.ime)}</span></div>`;
                   };
                   rezBox.innerHTML = (direktni.length
-                      ? direktni.slice(0,12).map(red).join('')
-                      : '')
-                    + (ostali.length ? `<div class="prazno-rez">preko povezanih entiteta (${ostali.length})</div>`
-                        + ostali.slice(0,4).map(red).join('') : '');
-                  rezBox.hidden = false;
-                } else {
-                  rezBox.innerHTML = `<div class="prazno-rez">Nema pogodaka za "${esc(q)}".</div>`;
-                  rezBox.hidden = false;
-                }
-        } else if (rezBox) {
-          rezBox.hidden = true;
-          rezBox.innerHTML = '';
-        }
+                                        ? direktni.slice(0,12).map(red).join('')
+                                        : '')
+                                      + (ostali.length ? `<div class="prazno-rez">preko povezanih entiteta (${ostali.length})</div>`
+                                          + ostali.slice(0,4).map(red).join('') : '');
+                                    rezBox.hidden = false;
+                                    if (rezBoxM) { rezBoxM.innerHTML = rezBox.innerHTML; rezBoxM.hidden = false; }
+                                  } else {
+                                    rezBox.innerHTML = `<div class="prazno-rez">Nema pogodaka za "${esc(q)}".</div>`;
+                                    rezBox.hidden = false;
+                                    if (rezBoxM) { rezBoxM.innerHTML = rezBox.innerHTML; rezBoxM.hidden = false; }
+                                  }
+                          } else if (rezBox) {
+                            rezBox.hidden = true;
+                            rezBox.innerHTML = '';
+                            if (rezBoxM) { rezBoxM.hidden = true; rezBoxM.innerHTML = ''; }
+                          }
 
   document.getElementById('s-cvorova').textContent = cvorovi.length;
   document.getElementById('s-bridova').textContent = bridovi.length;
@@ -858,6 +876,13 @@ document.getElementById('trazi').oninput = e => {
   clearTimeout(odgoda);
   odgoda = setTimeout(() => { stanje.trazi = e.target.value.trim(); primijeni(); }, 160);
 };
+const traziM = document.getElementById('trazi-m');
+if (traziM) {
+  traziM.oninput = e => {
+    clearTimeout(odgoda);
+    odgoda = setTimeout(() => { stanje.trazi = e.target.value.trim(); primijeni(); }, 160);
+  };
+}
 document.getElementById('btn-slozi').onclick = () => {
   transform = d3.zoomIdentity; d3.select(platno).call(zoom.transform, d3.zoomIdentity);
   sim.alpha(.9).restart();
