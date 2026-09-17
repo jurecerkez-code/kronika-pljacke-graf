@@ -289,12 +289,18 @@
     .app.fs-active .punch, .app.fs-active .udarac, .app.fs-active .era,
     .app.fs-active .slajder, .app.fs-active aside.lijevo { display:none; }
     .app.fs-active aside.desno { max-height:46vh; }
+    /* exit gumb: fixed u DESNOM DONOM kutu, uvijek iznad svega, i u FS API i u CSS fallbacku */
     #btn-fullscreen { position:absolute; top:10px; right:12px; z-index:20;
       padding:8px 12px; font-size:13px; border:1px solid var(--hair);
       border-radius:8px; background:var(--surface); color:var(--ink); cursor:pointer; }
-    #btn-fullscreen:active { transform:scale(0.97); }
-    main:fullscreen { width:100vw; height:100vh; }
+    .app.fs-active #btn-fullscreen,
+    main:fullscreen #btn-fullscreen { position:fixed; top:auto; bottom:calc(14px + env(safe-area-inset-bottom)); right:14px;
+      z-index:99999; padding:10px 16px; font-size:14px; box-shadow:0 2px 12px rgba(0,0,0,.4); }
+    /* u fullscreen: legenda i oblacik smanjeni/uvučeni da ne zaprečavaju; gumb iznad svega */
+    .app.fs-active .legenda, main:fullscreen .legenda { left:12px; bottom:calc(14px + env(safe-area-inset-bottom)); z-index:5; max-width:60vw; }
+    main:fullscreen { width:100vw; height:100vh; background:var(--plane); }
     main:fullscreen canvas { width:100vw; height:100vh; display:block; }
+    .app.fs-active main { height:100dvh; }
   </style>
 
 <div class="app" id="app">
@@ -308,7 +314,6 @@
       <button id="btn-filtri">☰ Filtri</button>
       <button id="btn-tablica">Tablica</button>
       <button id="btn-slozi">Presloži</button>
-      <button id="btn-fullscreen" title="Cijeli ekran">⛶ Cijeli ekran</button>
     </header>
 
     <div class="punch" id="punch"></div>
@@ -358,6 +363,7 @@
   </aside>
 
   <main>
+    <button id="btn-fullscreen" title="Cijeli ekran">⛶ Cijeli ekran</button>
     <canvas id="platno"></canvas>
     <div class="oblacic" id="oblacic" hidden></div>
     <div class="prazno" id="prazno" hidden></div>
@@ -1021,7 +1027,7 @@ primijeni();
         if (!IOS && main.requestFullscreen) { main.requestFullscreen().catch(() => cssFS(true)); }
         else cssFS(true);
       }
-      function cssFS(on) { app.classList.toggle('fs-active', on); btn.textContent = on ? '✕ Izađi' : '⛶ Cijeli ekran'; }
+      function cssFS(on) { app.classList.toggle('fs-active', on); btn.textContent = on ? '✕' : '⛶ Cijeli ekran'; }
       function exit() {
         if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); }
         cssFS(false);
