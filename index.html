@@ -301,7 +301,9 @@
     main:fullscreen #btn-fullscreen { position:fixed; top:auto; bottom:calc(14px + env(safe-area-inset-bottom)); right:14px;
       z-index:99999; padding:10px 16px; font-size:14px; box-shadow:0 2px 12px rgba(0,0,0,.4); }
     /* u fullscreen: legenda i oblacik smanjeni/uvučeni da ne zaprečavaju; gumb iznad svega */
-    .app.fs-active .legenda, main:fullscreen .legenda { left:12px; bottom:calc(14px + env(safe-area-inset-bottom)); z-index:5; max-width:60vw; }
+    .app.fs-active .legenda, main:fullscreen .legenda { position:fixed; left:12px; bottom:calc(14px + env(safe-area-inset-bottom));
+      z-index:500; max-width:62vw; max-height:38vh; overflow-y:auto; overscroll-behavior:contain;
+      padding:8px 11px calc(8px + env(safe-area-inset-bottom)); }
     main:fullscreen { width:100vw; height:100vh; background:var(--plane); }
     main:fullscreen canvas { width:100vw; height:100vh; display:block; }
     .app.fs-active main { height:100dvh; }
