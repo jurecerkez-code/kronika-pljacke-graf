@@ -46,7 +46,7 @@
       font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
       height:100vh; display:grid;
       grid-template-columns:250px 1fr 0fr;
-      grid-template-rows:auto auto 1fr;
+      grid-template-rows:auto auto auto auto auto 1fr;
     }
   .app.detalj { grid-template-columns:250px 1fr 340px; }
 
@@ -216,10 +216,18 @@
     .punch .p.prsten b { display:inline; font-size:16px; }
 
     .udarac {
-      grid-column:1/-1; padding:10px 16px; background:var(--plane);
-      border-bottom:1px solid var(--hair); color:var(--ink-2); font-size:14px; line-height:1.5;
-    }
-    .udarac b { color:var(--ink); font-weight:700; }
+        grid-column:1/-1; padding:10px 16px; background:var(--plane);
+        border-bottom:1px solid var(--hair); color:var(--ink-2); font-size:14px; line-height:1.5;
+      }
+      .udarac b { color:var(--ink); font-weight:700; }
+
+      /* slajder razdoblja na vrhu, ispod traka razdoblja */
+      .slajder {
+        grid-column:1/-1; display:flex; align-items:center; gap:12px;
+        padding:7px 16px; background:var(--plane); border-bottom:1px solid var(--hair);
+      }
+      .slajder .god { font-size:11px; color:var(--ink-3); font-variant-numeric:tabular-nums; flex:none; }
+      .slajder input { flex:1; }
 
     .era {
       grid-column:1/-1; display:flex; border-bottom:1px solid var(--hair);
@@ -252,12 +260,25 @@
   #rezultati .prazno-rez { padding:8px 9px; color:var(--ink-3); font-size:11.5px; }
 
   @media (max-width:900px) {
-    .app, .app.detalj { grid-template-columns:1fr; grid-template-rows:auto auto 1fr; }
-    aside.lijevo { max-height:34vh; border-right:0; border-bottom:1px solid var(--hair); }
-    .app.detalj aside.desno { position:fixed; inset:auto 0 0; max-height:55vh; z-index:10;
-      border-top:1px solid var(--rule); }
-  }
-</style>
+      .app, .app.detalj { grid-template-columns:1fr; grid-template-rows:auto auto auto auto auto auto 1fr; }
+      aside.lijevo {
+        position:fixed; top:0; left:0; bottom:0; width:82%; max-width:330px; z-index:30;
+        transform:translateX(-100%); transition:transform .22s ease; box-shadow:0 0 24px rgba(0,0,0,.25);
+        border-right:1px solid var(--rule);
+      }
+      aside.lijevo.otvoren { transform:translateX(0); }
+      .app.detalj aside.desno { position:fixed; inset:auto 0 0; max-height:55vh; z-index:10;
+        border-top:1px solid var(--rule); }
+      /* trake razdoblja na mobitelu: horizontalno klizne */
+      .era { overflow-x:auto; }
+      .era .e { flex:0 0 130px; }
+      #btn-filtri { display:inline-block; }
+      .punch { gap:0; }
+    }
+    @media (min-width:901px) {
+      #btn-filtri { display:none; }
+    }
+  </style>
 
 <div class="app" id="app">
   <header>
@@ -267,13 +288,19 @@
       <span class="stat"><b id="s-bridova">0</b> veza</span>
       <span class="stat" id="s-raspon"></span>
       <span class="spacer"></span>
+      <button id="btn-filtri">☰ Filtri</button>
       <button id="btn-tablica">Tablica</button>
       <button id="btn-slozi">Presloži</button>
     </header>
 
     <div class="punch" id="punch"></div>
-  <div class="udarac" id="udarac"></div>
-  <div class="era" id="era"></div>
+      <div class="udarac" id="udarac"></div>
+      <div class="era" id="era"></div>
+      <div class="slajder">
+        <span id="god-od" class="god"></span>
+        <input type="range" id="godina" min="1800" max="2026" value="1800" title="Prikaži predmete od ove godine nadalje">
+        <span id="god-do" class="god"></span>
+      </div>
 
     <aside class="lijevo">
       <div class="grupa">
@@ -296,16 +323,9 @@
     </div>
 
     <div class="grupa">
-      <h2>Ishod postupka</h2>
-      <div id="ishodi"></div>
-    </div>
-
-    <div class="grupa">
-      <h2>Razdoblje</h2>
-      <div class="raspon"><span id="god-od"></span><span id="god-do"></span></div>
-      <input type="range" id="godina" min="1800" max="2026" value="1800">
-      <div style="font-size:11px;color:var(--ink-3);margin-top:2px">prikazuje predmete od odabrane godine</div>
-    </div>
+          <h2>Ishod postupka</h2>
+          <div id="ishodi"></div>
+        </div>
 
     <div class="grupa">
       <h2>Najmanji broj predmeta po entitetu</h2>
@@ -369,6 +389,7 @@ const stanje = {
   vrste: new Set(['predmet','akter','institucija','izvor']),
   ishodi: new Set(Object.keys(ISHOD)),
   odGodine: PODACI.meta.raspon[0],
+  doGodine: PODACI.meta.raspon[1],
   minStupanj: 2,
   boja: 'ishod',
   trazi: '',
@@ -440,10 +461,11 @@ let cvorovi = [], bridovi = [], sim = null;
 function primijeni() {
   const q = stanje.trazi.toLowerCase();
   const vidljivPredmet = n =>
-    n.tip === 'predmet' &&
-    stanje.vrste.has('predmet') &&
-    stanje.ishodi.has(n.ishod) &&
-    (n.godina || 0) >= stanje.odGodine;
+      n.tip === 'predmet' &&
+      stanje.vrste.has('predmet') &&
+      stanje.ishodi.has(n.ishod) &&
+      (n.godina || 0) >= stanje.odGodine &&
+      (n.godina || 0) <= stanje.doGodine;
 
   const predmeti = new Set(svi.filter(vidljivPredmet).map(n => n.id));
 
@@ -840,8 +862,12 @@ document.getElementById('btn-slozi').onclick = () => {
   transform = d3.zoomIdentity; d3.select(platno).call(zoom.transform, d3.zoomIdentity);
   sim.alpha(.9).restart();
 };
+document.getElementById('btn-filtri').onclick = () => {
+  document.querySelector('aside.lijevo').classList.toggle('otvoren');
+};
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { tablicaEl.hidden = true; odaberi(null); }
+  if (e.key === 'Escape') { tablicaEl.hidden = true; odaberi(null);
+    document.querySelector('aside.lijevo').classList.remove('otvoren'); }
 });
 
 document.getElementById('god-od').textContent = PODACI.meta.raspon[0] + '.';
@@ -901,35 +927,46 @@ primijeni();
     ].filter(e => e.od < PODACI.meta.raspon[1]);
     const eraEl = document.getElementById('era');
     eraEl.innerHTML = ERA.map(e => `
-      <div class="e" data-od="${e.od}" title="${e.d}">
+      <div class="e" data-od="${e.od}" data-do="${e.do}" title="${e.d}">
         <b>${e.od}.–${e.do}.</b><span>${e.n}</span>
       </div>`).join('');
+    // aktivno razdoblje: jedan segment = tocan raspon godina
+    const oznaciEru = () => {
+      [...eraEl.children].forEach(ch => {
+        const a = +ch.dataset.od === stanje.odGodine && +ch.dataset.do === stanje.doGodine;
+        ch.classList.toggle('aktivan', a);
+      });
+    };
     eraEl.onclick = ev => {
       const seg = ev.target.closest('.e');
       if (!seg) return;
-      const od = +seg.dataset.od;
+      stanje.odGodine = +seg.dataset.od;
+      stanje.doGodine = +seg.dataset.do;
       const god = document.getElementById('godina');
-      if (stanje.odGodine === od) { stanje.odGodine = PODACI.meta.raspon[0]; }
-      else { stanje.odGodine = od; }
       god.value = stanje.odGodine;
-      document.getElementById('god-od').textContent = stanje.odGodine + '.';
       osvjeziGodinuPct();
+      osvjeziRasponNatpis();
       primijeni();
-      [...eraEl.children].forEach(ch => ch.classList.toggle('aktivan',
-        stanje.odGodine !== PODACI.meta.raspon[0] && +ch.dataset.od === stanje.odGodine));
+      oznaciEru();
     };
     window.osvjeziGodinuPct = () => {
       const god = document.getElementById('godina');
       const pct = (god.value - god.min) / (god.max - god.min) * 100;
       god.style.setProperty('--godina-pct', pct + '%');
     };
+    window.osvjeziRasponNatpis = () => {
+      document.getElementById('god-od').textContent = stanje.odGodine + '.';
+      document.getElementById('god-do').textContent = stanje.doGodine + '.';
+    };
     document.getElementById('godina').oninput = e => {
+      // slajder mijenja samo donju granicu (od godine nadalje)
       stanje.odGodine = +e.target.value;
+      stanje.doGodine = PODACI.meta.raspon[1];
       document.getElementById('god-od').textContent = e.target.value + '.';
+      document.getElementById('god-do').textContent = stanje.doGodine + '.';
       osvjeziGodinuPct();
       primijeni();
-      [...eraEl.children].forEach(ch => ch.classList.toggle('aktivan',
-        stanje.odGodine !== PODACI.meta.raspon[0] && +ch.dataset.od === stanje.odGodine));
+      oznaciEru();
     };
     document.getElementById('god-do').textContent = PODACI.meta.raspon[1] + '.';
     osvjeziGodinuPct();
